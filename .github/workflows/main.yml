@@ -151,7 +151,8 @@ jobs:
           run: |
                 cd /work
                 npm run dist
-                cd dist && tar -cvzf raptor_downloader_linux.tar.gz raptor_downloader_linux
+                tar -czvf raptor_downloader_linux.tar.gz -C dist/linux-unpacked .
+                mv raptor_downloader_linux.tar.gz dist
         env:
            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
