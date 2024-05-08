@@ -51,7 +51,6 @@ jobs:
         run: |
               node --version
               python3 -V
-              ls -l
 
       - name: Install packages ${{ matrix.os }}
         if: ${{ matrix.os != 'ubuntu-22.04' }}
