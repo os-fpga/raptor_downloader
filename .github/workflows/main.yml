@@ -107,14 +107,14 @@ jobs:
 
       - name: Pull the CentOS image
         if: ${{ matrix.os == 'ubuntu-22.04' }}
-        run: docker pull ghcr.io/${{ github.repository_owner }}/raptor_downloader:centos7latest
+        run: docker pull ghcr.io/${{ github.repository_owner }}/raptor_downloader_new:centos7latest
 
       - name: Shell configuration on centos 7
         if: ${{ matrix.os == 'ubuntu-22.04' }}
         uses: addnab/docker-run-action@v3
         with:
           shell: bash
-          image: ghcr.io/${{ github.repository_owner }}/raptor_downloader:centos7latest
+          image: ghcr.io/${{ github.repository_owner }}/raptor_downloader_new:centos7latest
           run: |
                 source /opt/rh/devtoolset-11/enable
                 cmake --version
@@ -126,7 +126,7 @@ jobs:
         uses: addnab/docker-run-action@v3
         with:
           shell: bash
-          image: ghcr.io/${{ github.repository_owner }}/raptor_downloader:centos7latest
+          image: ghcr.io/${{ github.repository_owner }}/raptor_downloader_new:centos7latest
           options: -v ${{ github.workspace }}:/work
           run: |
                 cd /work
@@ -146,7 +146,7 @@ jobs:
         uses: addnab/docker-run-action@v3
         with:
           shell: bash
-          image: ghcr.io/${{ github.repository_owner }}/raptor_downloader:centos7latest
+          image: ghcr.io/${{ github.repository_owner }}/raptor_downloader_new:centos7latest
           options: -v ${{ github.workspace }}:/work
           run: |
                 cd /work
