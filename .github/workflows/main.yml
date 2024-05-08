@@ -1,0 +1,186 @@
+name: Publish RDA
+
+on:
+  workflow_dispatch:
+#  pull_request:
+  push:
+    branches:
+      - main
+      - nadeem*  
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: 'Publish RDA'	
+    strategy:
+      fail-fast: false
+      matrix:
+        os: 
+          - ubuntu-22.04 # This is CentOS 7 under the hood
+          - macos-latest
+          - windows-latest
+          
+    runs-on: ${{ matrix.os }}
+    env:
+      MODE: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          repository: os-fpga/raptor_downloader_closed
+          token: ${{ secrets.RELEASEPAT }}
+
+      - name: Setup Node.js ${{ matrix.os }}
+        if: ${{ matrix.os != 'ubuntu-22.04' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.11 #if update this then also update in Dockerfile for centos
+
+      - name: Setup Python
+        if: ${{ matrix.os != 'ubuntu-22.04' }}
+        uses: actions/setup-python@v5.0.0
+        with:
+          python-version: 3.8 #if update this then also update in Dockerfile for centos
+
+      - name: Shell config on ${{ matrix.os }}
+        if: ${{ matrix.os != 'ubuntu-22.04' }}
+        run: |
+              node --version
+              python3 -V
+              ls -l
+
+      - name: Install packages ${{ matrix.os }}
+        if: ${{ matrix.os != 'ubuntu-22.04' }}
+        run: |
+              npm install
+
+      - name: setup-headless-display-action
+        uses: pyvista/setup-headless-display-action@v2
+        
+
+      - name: Do Magic on ${{ matrix.os }}
+        if: ${{ matrix.os == 'windows-latest' }}  
+        run: |
+              python3 rename.py --src main.js --dst orgnl_main.js      
+              python3 rename.py --src main_byte.js --dst main.js
+              npm start
+              python3 rename.py --src to_be_main.js --dst main.js
+     
+      - name: Do Magic on ${{ matrix.os }}
+        if: ${{ matrix.os == 'macos-latest' }}  
+        run: |
+              brew install coreutils
+              python3 rename.py --src main.js --dst orgnl_main.js
+              python3 rename.py --src main_byte.js --dst main.js
+              (timeout 10 npm start || [ $? -eq 124 ]) && exit 0 || exit $? 
+              python3 rename.py --src to_be_main.js --dst main.js           
+
+      - name: Do packaging on ${{ matrix.os }}
+        if: ${{ matrix.os != 'ubuntu-22.04' }}
+        run: |
+              npm run dist
+        env:
+           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}            
+
+      - name: Show dist on ${{ matrix.os }}
+        if: ${{ matrix.os != 'ubuntu-22.04' && matrix.os == 'macos-latest' }}
+        run: |
+              ls -l dist
+
+      - name: Show dist on ${{ matrix.os }}
+        if: ${{ matrix.os != 'ubuntu-22.04' && matrix.os == 'windows-latest' }}
+        run: |
+              dir dist
+
+########## Linux CentOS 7 ############################
+
+      - name: Login to the Container registry
+        if: ${{ matrix.os == 'ubuntu-22.04' }}
+        uses: docker/login-action@v3.0.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}          
+
+      - name: Pull the CentOS image
+        if: ${{ matrix.os == 'ubuntu-22.04' }}
+        run: docker pull ghcr.io/${{ github.repository_owner }}/raptor_downloader:centos7latest
+
+      - name: Shell configuration on centos 7
+        if: ${{ matrix.os == 'ubuntu-22.04' }}
+        uses: addnab/docker-run-action@v3
+        with:
+          shell: bash
+          image: ghcr.io/${{ github.repository_owner }}/raptor_downloader:centos7latest
+          run: |
+                source /opt/rh/devtoolset-11/enable
+                cmake --version
+                node --version
+                python3 -V
+
+      - name: Install Package on Linux
+        if: ${{ matrix.os == 'ubuntu-22.04' }}
+        uses: addnab/docker-run-action@v3
+        with:
+          shell: bash
+          image: ghcr.io/${{ github.repository_owner }}/raptor_downloader:centos7latest
+          options: -v ${{ github.workspace }}:/work
+          run: |
+                cd /work
+                npm install
+
+      - name: Do magic on Linux
+        if: ${{ matrix.os == 'ubuntu-22.04' }}
+        run: |
+              python3 rename.py --src main.js --dst orgnl_main.js
+              python3 rename.py --src main_byte.js --dst main.js
+              npm start
+              python3 rename.py --src to_be_main.js --dst main.js
+        
+
+      - name: Create Package on Linux
+        if: ${{ matrix.os == 'ubuntu-22.04' }}
+        uses: addnab/docker-run-action@v3
+        with:
+          shell: bash
+          image: ghcr.io/${{ github.repository_owner }}/raptor_downloader:centos7latest
+          options: -v ${{ github.workspace }}:/work
+          run: |
+                cd /work
+                npm run dist
+                cd dist && tar -cvzf raptor_downloader_linux.tar.gz raptor_downloader_linux
+        env:
+           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+########## Upload #######################
+
+      - name: Run on refs/tags only
+        run: |
+            echo ${{ github.ref }}
+
+      - name: Upload Release ${{ matrix.os }}
+        #if: ${{ matrix.os != 'ubuntu-22.04' && contains(github.ref, 'refs/tags/') }}
+        #if: ${{ matrix.os != 'ubuntu-22.04' }}
+        uses: softprops/action-gh-release@v1
+        with:
+            files: dist/raptor_downloader_*.tar.gz
+            repository: os-fpga/post_build_artifacts
+            token: ${{ secrets.RELEASEPAT }}
+            tag_name: v0.3
+
+
+#      - name: Upload Release ${{ matrix.os }}
+#        #if: ${{ matrix.os == 'ubuntu-22.04' && contains(github.ref, 'refs/tags/') }}
+#        if: ${{ matrix.os == 'ubuntu-22.04' }}
+#        uses: softprops/action-gh-release@v1
+#        with:
+#            files: dist/raptor_downloader_linux
+#            repository: os-fpga/post_build_artifacts
+#            token: ${{ secrets.RELEASEPAT }}
+#            tag_name: v0.3
+
+
