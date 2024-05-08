@@ -151,6 +151,7 @@ jobs:
           run: |
                 cd /work
                 npm run dist
+                cd dist/linux-unpacked && mkdir etc && mv * etc/ && ln -s etc/raptor_downloader raptor_downloader_linux && cd -  
                 tar -czvf raptor_downloader_linux.tar.gz -C dist/linux-unpacked .
                 mv raptor_downloader_linux.tar.gz dist
         env:
