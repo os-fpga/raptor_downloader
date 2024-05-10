@@ -151,7 +151,7 @@ jobs:
           run: |
                 cd /work
                 npm run dist
-                mkdir -p /opt/pack/etc && mv dist/linux-unpacked/* /opt/pack/etc && cd /opt/pack && ln -s etc/raptor_downloader raptor_downloader_linux && cd -   
+                mkdir -p /opt/pack/etc && mv dist/linux-unpacked/* /opt/pack/etc && cp -f to_be_rda /opt/pack/raptor_downloader_linux 
                 ls -l /opt/pack   
                 tar -czvf raptor_downloader_linux.tar.gz -C /opt/pack .
                 ls -l
